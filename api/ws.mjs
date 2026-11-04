@@ -107,7 +107,7 @@ wss.on('connection', (ws) => {
                 type: 'chat',
                 playerId: ws.id,
                 message
-            });
+            }, ws);
         }
     });
 

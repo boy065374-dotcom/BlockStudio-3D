@@ -397,6 +397,173 @@ const cameraLookTarget = new THREE.Vector3();
 let joystickX = 0;
 let joystickY = 0;
 
+// --- MULTIPLAYER ---
+
+const remotePlayers = new Map();
+let multiplayerSocket = null;
+let reconnectDelay = 1000;
+let lastStateSent = 0;
+
+const roomParams = new URLSearchParams(location.search);
+let roomId = roomParams.get('room');
+
+if (!roomId || !/^[a-zA-Z0-9_-]{3,32}$/.test(roomId)) {
+    roomId = Math.random().toString(36).slice(2, 10);
+    history.replaceState(
+        null,
+        '',
+        `${location.pathname}?room=${roomId}${location.hash}`
+    );
+}
+
+function createRemotePlayer(id, state = null) {
+    if (remotePlayers.has(id)) return remotePlayers.get(id);
+
+    const avatar = new THREE.Group();
+
+    const head = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 0.8, 0.8),
+        new THREE.MeshLambertMaterial({ color: 0xffcc00 })
+    );
+    head.position.y = 1.5;
+    avatar.add(head);
+
+    const torso = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1.2, 0.5),
+        new THREE.MeshLambertMaterial({ color: 0x00c853 })
+    );
+    torso.position.y = 0.6;
+    avatar.add(torso);
+
+    if (state) {
+        avatar.position.set(state.x, state.y, state.z);
+        avatar.rotation.y = state.rotation;
+    }
+
+    scene.add(avatar);
+    remotePlayers.set(id, avatar);
+    return avatar;
+}
+
+function removeRemotePlayer(id) {
+    const avatar = remotePlayers.get(id);
+    if (!avatar) return;
+
+    scene.remove(avatar);
+
+    avatar.traverse(obj => {
+        if (!obj.isMesh) return;
+        obj.geometry.dispose();
+        obj.material.dispose();
+    });
+
+    remotePlayers.delete(id);
+}
+
+function addRemoteChat(name, message) {
+    const box = document.getElementById('chat-messages');
+    const row = document.createElement('div');
+    row.className = 'chat-msg';
+
+    const sender = document.createElement('span');
+    sender.textContent = name + ':';
+
+    row.appendChild(sender);
+    row.appendChild(document.createTextNode(' ' + message));
+    box.appendChild(row);
+    box.scrollTop = box.scrollHeight;
+}
+
+function connectMultiplayer() {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(
+        `${protocol}//${location.host}/api/ws`
+    );
+
+    multiplayerSocket = socket;
+
+    socket.addEventListener('open', () => {
+        reconnectDelay = 1000;
+        socket.send(JSON.stringify({
+            type: 'join',
+            room: roomId
+        }));
+    });
+
+    socket.addEventListener('message', event => {
+        let data;
+
+        try {
+            data = JSON.parse(event.data);
+        } catch {
+            return;
+        }
+
+        if (data.type === 'room-joined') {
+            for (const item of data.players || []) {
+                createRemotePlayer(item.playerId, item.state);
+            }
+        }
+
+        if (data.type === 'player-joined') {
+            createRemotePlayer(data.playerId);
+        }
+
+        if (data.type === 'player-update') {
+            const avatar = createRemotePlayer(data.playerId);
+            const state = data.state;
+
+            if (!state) return;
+
+            avatar.position.set(state.x, state.y, state.z);
+            avatar.rotation.y = state.rotation;
+        }
+
+        if (data.type === 'player-left') {
+            removeRemotePlayer(data.playerId);
+        }
+
+        if (data.type === 'chat') {
+            addRemoteChat('لاعب ' + data.playerId.slice(0, 5), data.message);
+        }
+
+        if (data.type === 'error') {
+            addRemoteChat('النظام', data.message);
+        }
+    });
+
+    socket.addEventListener('close', () => {
+        for (const id of remotePlayers.keys()) {
+            removeRemotePlayer(id);
+        }
+
+        if (multiplayerSocket === socket) {
+            multiplayerSocket = null;
+            setTimeout(connectMultiplayer, reconnectDelay);
+            reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        }
+    });
+}
+
+function sendMultiplayerState() {
+    const socket = multiplayerSocket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    const now = Date.now();
+    if (now - lastStateSent < 50) return;
+
+    lastStateSent = now;
+
+    socket.send(JSON.stringify({
+        type: 'state',
+        x: player.position.x,
+        y: player.position.y,
+        z: player.position.z,
+        rotation: player.rotation.y
+    }));
+}
+
+
 // Detect touch devices, even with Desktop Site enabled.
 if (navigator.maxTouchPoints > 0 || 'ontouchstart' in window) {
     document.body.classList.add('mobile-device');
@@ -444,6 +611,7 @@ function init() {
 
     createPlayer();
     loadObbyWorld();
+    connectMultiplayer();
 
     window.addEventListener('resize', onWindowResize);
 
@@ -971,6 +1139,7 @@ function updatePlayer(frameScale = 1) {
     }
 
     camera.lookAt(cameraLookTarget);
+    sendMultiplayerState();
 }
 
 // --- CHAT TOGGLE ---
@@ -1078,36 +1247,40 @@ function sendChat() {
 
     msgBox.scrollTop = msgBox.scrollHeight;
 
+    if (multiplayerSocket && multiplayerSocket.readyState === WebSocket.OPEN) {
+        multiplayerSocket.send(JSON.stringify({
+            type: 'chat',
+            message
+        }));
+    }
+
     input.value = '';
 }
 
 // --- SHARE ROOM LINK ---
 
 async function shareRoom() {
+    const inviteUrl =
+        `${location.origin}${location.pathname}?room=${encodeURIComponent(roomId)}`;
+
     try {
         if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(window.location.href);
+            await navigator.clipboard.writeText(inviteUrl);
         } else {
             const temp = document.createElement('textarea');
-
-            temp.value = window.location.href;
+            temp.value = inviteUrl;
             temp.style.position = 'fixed';
             temp.style.opacity = '0';
-
             document.body.appendChild(temp);
-
             temp.select();
 
             const copied = document.execCommand('copy');
-
             temp.remove();
 
-            if (!copied) {
-                throw new Error('Clipboard unavailable');
-            }
+            if (!copied) throw new Error('Clipboard unavailable');
         }
 
-        alert('تم نسخ رابط اللعبة بنجاح! ارسله لأصحابك.');
+        alert('تم نسخ رابط الغرفة! ارسله لأصحابك.');
     } catch (error) {
         alert('تعذر نسخ الرابط. انسخه من شريط العنوان.');
     }
