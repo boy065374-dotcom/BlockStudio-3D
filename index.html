@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockStudio 3D - Roblox Style Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a1a24;
+            color: #fff;
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .ui-header {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .ui-card {
+            background: rgba(20, 20, 30, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 10px 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .btn {
+            background: #0084ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            background: #0066cc;
+            transform: translateY(-2px);
+        }
+        .btn-green {
+            background: #00c853;
+        }
+        .btn-green:hover {
+            background: #009624;
+        }
+        .world-bar {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+        .world-btn {
+            background: rgba(30, 30, 45, 0.9);
+            color: #aaa;
+            border: 2px solid transparent;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .world-btn.active {
+            color: #fff;
+            border-color: #0084ff;
+            background: #0084ff22;
+        }
+        .chat-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 300px;
+            height: 200px;
+            background: rgba(15, 15, 25, 0.8);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            z-index: 10;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .chat-msg {
+            background: rgba(255,255,255,0.05);
+            padding: 4px 8px;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+        }
+        .chat-msg span {
+            font-weight: bold;
+            color: #00a2ff;
+        }
+        .chat-input {
+            margin-top: 8px;
+            display: flex;
+            gap: 5px;
+        }
+        .chat-input input {
+            flex: 1;
+            min-width: 0;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid #444;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            outline: none;
+        }
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            line-height: 1.6;
+            z-index: 10;
+        }
+        /* Chat Toggle */
+        .chat-toggle {
+            position: absolute;
+            bottom: 230px;
+            left: 20px;
+            z-index: 12;
+        }
+        .chat-container.hidden {
+            display: none;
+        }
+
+        /* Mobile Controls */
+        .mobile-controls {
+            display: none;
+            position: absolute;
+            inset: 0;
+            z-index: 9;
+            pointer-events: none;
+        }
+        .joystick {
+            position: absolute;
+            bottom: 25px;
+            left: 20px;
+            width: 125px;
+            height: 125px;
+            border-radius: 50%;
+            background: rgba(20,20,30,0.55);
+            border: 2px solid rgba(255,255,255,0.3);
+            pointer-events: auto;
+            touch-action: none;
+        }
+        .joystick-knob {
+            position: absolute;
+            width: 52px;
+            height: 52px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: rgba(0,132,255,0.9);
+            border: 2px solid white;
+        }
+        .mobile-jump {
+            position: absolute;
+            bottom: 55px;
+            right: 25px;
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            background: rgba(0,132,255,0.85);
+            border: 2px solid white;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+            pointer-events: auto;
+            touch-action: none;
+        }
+        body.mobile-device .mobile-controls {
+            display: block;
+        }
+
+        body.mobile-device .controls-hint {
+            display: none;
+        }
+
+        body.mobile-device .world-bar {
+            top: 75px;
+            width: 100%;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        body.mobile-device .world-btn {
+            padding: 7px 9px;
+            font-size: 10px;
+        }
+
+        body.mobile-device .ui-header {
+            top: 8px;
+            left: 8px;
+            right: 8px;
+        }
+
+        body.mobile-device .ui-card {
+            padding: 7px;
+            gap: 6px;
+            font-size: 11px;
+        }
+
+        body.mobile-device .btn {
+            padding: 7px 9px;
+            font-size: 10px;
+        }
+
+        body.mobile-device .chat-container {
+            left: 10px;
+            bottom: 165px;
+            width: min(300px, calc(100% - 20px));
+            height: 190px;
+        }
+
+        body.mobile-device .chat-toggle {
+            left: 10px;
+            bottom: 125px;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: block;
+            }
+            .controls-hint {
+                display: none;
+            }
+            .world-bar {
+                top: 75px;
+                width: 100%;
+                justify-content: center;
+                gap: 4px;
+            }
+            .world-btn {
+                padding: 7px 9px;
+                font-size: 10px;
+            }
+            .ui-header {
+                top: 8px;
+                left: 8px;
+                right: 8px;
+            }
+            .ui-card {
+                padding: 7px;
+                gap: 6px;
+                font-size: 11px;
+            }
+            .btn {
+                padding: 7px 9px;
+                font-size: 10px;
+            }
+            .chat-container {
+                left: 10px;
+                bottom: 165px;
+                width: min(300px, calc(100% - 20px));
+                height: 190px;
+            }
+            .chat-toggle {
+                left: 10px;
+                bottom: 145px;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div id="game-container">
+
+    <div class="ui-header">
+        <div class="ui-card">
+            <div>🎮 <b>BlockStudio 3D</b></div>
+            <div style="color: #ffd700;">🪙 <span id="coin-count">0</span></div>
+        </div>
+        <div class="ui-card">
+            <button class="btn btn-green" onclick="shareRoom()">🔗 دعوة أصحابك (نسخ اللينك)</button>
+        </div>
+    </div>
+
+    <div class="world-bar">
+        <button class="world-btn active" onclick="switchWorld('obby', this)">🏃 Obby (تحدي القفز)</button>
+        <button class="world-btn" onclick="switchWorld('city', this)">🏙️ المدينة (تجميع العملات)</button>
+        <button class="world-btn" onclick="switchWorld('builder', this)">🔨 عالم البناء (Build)</button>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-messages" id="chat-messages">
+            <div class="chat-msg"><span>النظام:</span> أهلاً بك في BlockStudio 3D!</div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="chat-in" placeholder="اكتب رسالة..." onkeydown="if(event.key==='Enter') sendChat()">
+            <button class="btn" onclick="sendChat()">إرسال</button>
+        </div>
+    </div>
+
+    <button class="btn chat-toggle" id="chat-toggle" onclick="toggleChat()">💬 إخفاء الشات</button>
+
+    <div class="mobile-controls">
+        <div class="joystick" id="joystick">
+            <div class="joystick-knob" id="joystick-knob"></div>
+        </div>
+        <button class="mobile-jump" id="mobile-jump">قفز ⬆</button>
+    </div>
+
+    <div class="controls-hint">
+        <b>🎮 التحكم:</b><br>
+        • <b>WASD / الأسهم:</b> الحركة<br>
+        • <b>Space:</b> القفز<br>
+        • <b>الماوس (سحب):</b> تدوير الكاميرا<br>
+        • <b>كليك شمال (في البناء):</b> وضع المربع
+    </div>
+
+</div>
+
+<script>
+'use strict';
+
+// --- BASIC SETUP ---
+
+let scene, camera, renderer;
+let player;
+let coins = 0;
+let currentWorld = 'obby';
+
+let worldObjects = [];
+let platforms = [];
+let keys = {};
+
+let velocityY = 0;
+let isGrounded = false;
+
+const gravity = -0.015;
+const jumpStrength = 0.35;
+const speed = 0.15;
+
+let jumpQueued = false;
+
+let isMouseDown = false;
+let cameraAngleX = 0;
+let cameraAngleY = 0.3;
+
+const CAMERA_SENSITIVITY = 0.004;
+const TOUCH_SENSITIVITY = 0.005;
+const CAMERA_SMOOTHING = 0.16;
+
+let cameraReady = false;
+let touchLookPointer = null;
+let touchLastX = 0;
+let touchLastY = 0;
+
+const cameraDesiredPosition = new THREE.Vector3();
+const cameraDesiredLookTarget = new THREE.Vector3();
+const cameraLookTarget = new THREE.Vector3();
+
+let joystickX = 0;
+let joystickY = 0;
+
+// Detect touch devices, even with Desktop Site enabled.
+if (navigator.maxTouchPoints > 0 || 'ontouchstart' in window) {
+    document.body.classList.add('mobile-device');
+}
+
+let previousPlayerY = 0;
+let lastFrameTime = 0;
+
+const PLAYER_RADIUS = 0.4;
+const PLAYER_HEIGHT = 2.0;
+
+// --- INITIALIZATION ---
+
+function init() {
+    const container = document.getElementById('game-container');
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog = new THREE.Fog(0x87ceeb, 20, 100);
+
+    camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+    );
+
+    renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+
+    container.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 40, 20);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    createPlayer();
+    loadObbyWorld();
+
+    window.addEventListener('resize', onWindowResize);
+
+    document.addEventListener('keydown', (e) => {
+        keys[e.code] = true;
+
+        if (e.code === 'Space') {
+            e.preventDefault();
+
+            if (!e.repeat) {
+                jumpQueued = true;
+            }
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        keys[e.code] = false;
+    });
+
+    window.addEventListener('blur', () => {
+        keys = {};
+        jumpQueued = false;
+        isMouseDown = false;
+    });
+
+    window.addEventListener('mousedown', (e) => {
+        if (e.target === renderer.domElement && e.button === 0) {
+            isMouseDown = true;
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        isMouseDown = false;
+    });
+
+    window.addEventListener('mousemove', onMouseMove);
+
+    // Touch camera look
+    renderer.domElement.style.touchAction = 'none';
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'touch') return;
+        if (touchLookPointer !== null) return;
+
+        touchLookPointer = e.pointerId;
+        touchLastX = e.clientX;
+        touchLastY = e.clientY;
+
+        renderer.domElement.setPointerCapture(e.pointerId);
+        e.preventDefault();
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== touchLookPointer) return;
+
+        const dx = e.clientX - touchLastX;
+        const dy = e.clientY - touchLastY;
+
+        touchLastX = e.clientX;
+        touchLastY = e.clientY;
+
+        rotateCamera(dx, dy, TOUCH_SENSITIVITY);
+    });
+
+    function stopTouchCamera(e) {
+        if (e.pointerId !== touchLookPointer) return;
+        touchLookPointer = null;
+    }
+
+    window.addEventListener('pointerup', stopTouchCamera);
+    window.addEventListener('pointercancel', stopTouchCamera);
+
+    window.addEventListener('click', buildBlock);
+
+    setupMobileControls();
+
+    animate();
+}
+
+// --- PLAYER CREATION ---
+
+function createPlayer() {
+    player = new THREE.Group();
+
+    const headMat = new THREE.MeshLambertMaterial({
+        color: 0xffcc00
+    });
+
+    const torsoMat = new THREE.MeshLambertMaterial({
+        color: 0x0084ff
+    });
+
+    const head = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 0.8, 0.8),
+        headMat
+    );
+
+    head.position.y = 1.5;
+    head.castShadow = true;
+    player.add(head);
+
+    const torso = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1.2, 0.5),
+        torsoMat
+    );
+
+    torso.position.y = 0.6;
+    torso.castShadow = true;
+    player.add(torso);
+
+    player.position.set(0, 0.5, 0);
+    scene.add(player);
+}
+
+// --- WORLD MANAGEMENT ---
+
+function clearWorld() {
+    for (const obj of worldObjects) {
+        scene.remove(obj);
+
+        if (obj.geometry) {
+            obj.geometry.dispose();
+        }
+
+        if (obj.material) {
+            if (Array.isArray(obj.material)) {
+                obj.material.forEach(m => m.dispose());
+            } else {
+                obj.material.dispose();
+            }
+        }
+    }
+
+    worldObjects = [];
+    platforms = [];
+}
+
+function resetPlayer(x = 0, y = 0.5, z = 0) {
+    player.position.set(x, y, z);
+    player.rotation.set(0, 0, 0);
+
+    velocityY = 0;
+    isGrounded = false;
+    jumpQueued = false;
+}
+
+// --- OBBY WORLD ---
+
+function loadObbyWorld() {
+    clearWorld();
+
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog.color.set(0x87ceeb);
+
+    createPlatform(
+        0, 0, 0,
+        6, 1, 6,
+        0x333333
+    );
+
+    for (let i = 1; i <= 8; i++) {
+        const color = i % 2 === 0
+            ? 0xff3366
+            : 0x33ccff;
+
+        createPlatform(
+            0,
+            i * 1.5,
+            -i * 5,
+            4, 0.8, 4,
+            color
+        );
+
+        createCoin(
+            0,
+            i * 1.5 + 1.5,
+            -i * 5
+        );
+    }
+
+    createPlatform(
+        0, 13.5, -45,
+        8, 1, 8,
+        0xffd700
+    );
+
+    resetPlayer(0, 0.5, 0);
+}
+
+// --- CITY WORLD ---
+
+function loadCityWorld() {
+    clearWorld();
+
+    scene.background = new THREE.Color(0xa0d8ef);
+    scene.fog.color.set(0xa0d8ef);
+
+    createPlatform(
+        0, -0.5, 0,
+        100, 1, 100,
+        0x555555
+    );
+
+    for (let i = 0; i < 12; i++) {
+        const x = (Math.random() - 0.5) * 80;
+        const z = (Math.random() - 0.5) * 80;
+
+        const h = 10 + Math.random() * 20;
+
+        createPlatform(
+            x, h / 2, z,
+            10, h, 10,
+            0x888899
+        );
+
+        createCoin(x + 6, 1, z);
+    }
+
+    resetPlayer(0, 0.5, 0);
+}
+
+// --- BUILDER WORLD ---
+
+function loadBuilderWorld() {
+    clearWorld();
+
+    scene.background = new THREE.Color(0x1a1a28);
+    scene.fog.color.set(0x1a1a28);
+
+    createPlatform(
+        0, -0.5, 0,
+        40, 1, 40,
+        0x222233
+    );
+
+    resetPlayer(0, 0.5, 0);
+}
+
+// --- OBJECT CREATION ---
+
+function createPlatform(x, y, z, w, h, d, color) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+
+    const mat = new THREE.MeshLambertMaterial({
+        color: color
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+
+    mesh.position.set(x, y, z);
+    mesh.receiveShadow = true;
+    mesh.castShadow = true;
+
+    scene.add(mesh);
+
+    worldObjects.push(mesh);
+    platforms.push(mesh);
+
+    return mesh;
+}
+
+function createCoin(x, y, z) {
+    const geo = new THREE.CylinderGeometry(
+        0.5, 0.5, 0.2, 16
+    );
+
+    const mat = new THREE.MeshLambertMaterial({
+        color: 0xffd700
+    });
+
+    const coin = new THREE.Mesh(geo, mat);
+
+    coin.position.set(x, y, z);
+    coin.rotation.x = Math.PI / 2;
+    coin.isCoin = true;
+
+    scene.add(coin);
+    worldObjects.push(coin);
+
+    return coin;
+}
+
+// --- WORLD SWITCHER ---
+
+function switchWorld(worldName, button) {
+    if (!['obby', 'city', 'builder'].includes(worldName)) {
+        return;
+    }
+
+    currentWorld = worldName;
+
+    document.querySelectorAll('.world-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    if (button) {
+        button.classList.add('active');
+    }
+
+    if (worldName === 'obby') {
+        loadObbyWorld();
+    } else if (worldName === 'city') {
+        loadCityWorld();
+    } else {
+        loadBuilderWorld();
+    }
+}
+
+// --- BUILDER MECHANIC ---
+
+function buildBlock(e) {
+    if (currentWorld !== 'builder') return;
+
+    if (!renderer || e.target !== renderer.domElement) {
+        return;
+    }
+
+    const forward = new THREE.Vector3(0, 0, -1)
+        .applyQuaternion(player.quaternion);
+
+    const blockPos = player.position.clone()
+        .add(forward.multiplyScalar(3));
+
+    blockPos.x = Math.round(blockPos.x);
+    blockPos.y = Math.round(blockPos.y + 0.75);
+    blockPos.z = Math.round(blockPos.z);
+
+    createPlatform(
+        blockPos.x,
+        blockPos.y,
+        blockPos.z,
+        1.5, 1.5, 1.5,
+        Math.random() * 0xffffff
+    );
+}
+
+// --- CAMERA CONTROLS ---
+
+function rotateCamera(dx, dy, sensitivity) {
+    cameraAngleX -= dx * sensitivity;
+    cameraAngleY += dy * sensitivity;
+
+    cameraAngleY = Math.max(
+        0.1,
+        Math.min(Math.PI / 2.5, cameraAngleY)
+    );
+}
+
+function onMouseMove(e) {
+    if (!isMouseDown) return;
+
+    rotateCamera(
+        e.movementX,
+        e.movementY,
+        CAMERA_SENSITIVITY
+    );
+}
+
+// --- PHYSICS ---
+
+function hasHorizontalOverlap(platform) {
+    const halfWidth = platform.geometry.parameters.width / 2;
+    const halfDepth = platform.geometry.parameters.depth / 2;
+
+    const px = platform.position.x;
+    const pz = platform.position.z;
+
+    return (
+        player.position.x + PLAYER_RADIUS > px - halfWidth &&
+        player.position.x - PLAYER_RADIUS < px + halfWidth &&
+        player.position.z + PLAYER_RADIUS > pz - halfDepth &&
+        player.position.z - PLAYER_RADIUS < pz + halfDepth
+    );
+}
+
+function updatePhysics(frameScale) {
+    const oldY = player.position.y;
+
+    velocityY += gravity * frameScale;
+    player.position.y += velocityY * frameScale;
+
+    isGrounded = false;
+
+    if (velocityY <= 0) {
+        let highestGround = -Infinity;
+
+        for (const platform of platforms) {
+            if (!hasHorizontalOverlap(platform)) {
+                continue;
+            }
+
+            const platformTop =
+                platform.position.y +
+                platform.geometry.parameters.height / 2;
+
+            if (
+                oldY >= platformTop - 0.05 &&
+                player.position.y <= platformTop &&
+                platformTop > highestGround
+            ) {
+                highestGround = platformTop;
+            }
+        }
+
+        if (highestGround !== -Infinity) {
+            player.position.y = highestGround;
+            velocityY = 0;
+            isGrounded = true;
+        }
+    }
+
+    if (jumpQueued && isGrounded) {
+        velocityY = jumpStrength;
+        isGrounded = false;
+    }
+
+    jumpQueued = false;
+
+    if (player.position.y < -10) {
+        resetPlayer(0, currentWorld === 'obby' ? 0.5 : 0.5, 0);
+    }
+}
+
+// --- PLAYER MOVEMENT ---
+
+function updatePlayer(frameScale = 1) {
+    let moveX = joystickX;
+    let moveZ = joystickY;
+
+    if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+    if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+    if (moveX !== 0 || moveZ !== 0) {
+        const length = Math.hypot(moveX, moveZ);
+
+        moveX /= length;
+        moveZ /= length;
+
+        const angle = cameraAngleX +
+            Math.atan2(moveX, moveZ);
+
+        player.rotation.y = angle;
+
+        player.position.x +=
+            Math.sin(angle) * speed * frameScale;
+
+        player.position.z +=
+            Math.cos(angle) * speed * frameScale;
+    }
+
+    updatePhysics(frameScale);
+
+    // Coin collection
+    for (let i = worldObjects.length - 1; i >= 0; i--) {
+        const obj = worldObjects[i];
+
+        if (!obj.isCoin) continue;
+
+        obj.rotation.z += 0.03 * frameScale;
+
+        const dx = player.position.x - obj.position.x;
+        const dy = player.position.y + 1 - obj.position.y;
+        const dz = player.position.z - obj.position.z;
+
+        const distance = Math.sqrt(
+            dx * dx + dy * dy + dz * dz
+        );
+
+        if (distance < 1.5) {
+            scene.remove(obj);
+
+            obj.geometry.dispose();
+            obj.material.dispose();
+
+            worldObjects.splice(i, 1);
+
+            coins += 10;
+
+            document.getElementById('coin-count')
+                .textContent = coins;
+        }
+    }
+
+    // Smooth third-person camera
+    const camDist = 8;
+
+    cameraDesiredPosition.set(
+        player.position.x +
+            camDist * Math.sin(cameraAngleX) *
+            Math.cos(cameraAngleY),
+
+        player.position.y +
+            camDist * Math.sin(cameraAngleY) + 1,
+
+        player.position.z +
+            camDist * Math.cos(cameraAngleX) *
+            Math.cos(cameraAngleY)
+    );
+
+    cameraDesiredLookTarget.set(
+        player.position.x,
+        player.position.y + 1,
+        player.position.z
+    );
+
+    if (!cameraReady) {
+        camera.position.copy(cameraDesiredPosition);
+        cameraLookTarget.copy(cameraDesiredLookTarget);
+        cameraReady = true;
+    } else {
+        const smoothFactor =
+            1 - Math.pow(1 - CAMERA_SMOOTHING, frameScale);
+
+        camera.position.lerp(
+            cameraDesiredPosition,
+            smoothFactor
+        );
+
+        cameraLookTarget.lerp(
+            cameraDesiredLookTarget,
+            smoothFactor
+        );
+    }
+
+    camera.lookAt(cameraLookTarget);
+}
+
+// --- CHAT TOGGLE ---
+
+function toggleChat() {
+    const chat = document.querySelector('.chat-container');
+    const button = document.getElementById('chat-toggle');
+
+    chat.classList.toggle('hidden');
+
+    button.textContent = chat.classList.contains('hidden')
+        ? '💬 فتح الشات'
+        : '💬 إخفاء الشات';
+}
+
+// --- MOBILE CONTROLS ---
+
+function setupMobileControls() {
+    const joystick = document.getElementById('joystick');
+    const knob = document.getElementById('joystick-knob');
+    const jumpButton = document.getElementById('mobile-jump');
+
+    if (!joystick || !knob || !jumpButton) return;
+
+    let activePointer = null;
+
+    function resetJoystick() {
+        joystickX = 0;
+        joystickY = 0;
+        activePointer = null;
+        knob.style.transform = 'translate(-50%, -50%)';
+    }
+
+    joystick.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+
+        if (activePointer !== null) return;
+
+        activePointer = e.pointerId;
+        joystick.setPointerCapture(e.pointerId);
+        moveJoystick(e);
+    });
+
+    function moveJoystick(e) {
+        if (e.pointerId !== activePointer) return;
+
+        const rect = joystick.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        let dx = e.clientX - rect.left - centerX;
+        let dy = e.clientY - rect.top - centerY;
+
+        const maxDistance = 38;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > maxDistance) {
+            dx = dx / distance * maxDistance;
+            dy = dy / distance * maxDistance;
+        }
+
+        joystickX = dx / maxDistance;
+        joystickY = dy / maxDistance;
+
+        knob.style.transform =
+            `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    }
+
+    joystick.addEventListener('pointermove', moveJoystick);
+
+    joystick.addEventListener('pointerup', resetJoystick);
+    joystick.addEventListener('pointercancel', resetJoystick);
+    joystick.addEventListener('lostpointercapture', resetJoystick);
+
+    jumpButton.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        jumpQueued = true;
+    });
+}
+
+// --- CHAT SYSTEM ---
+
+function sendChat() {
+    const input = document.getElementById('chat-in');
+
+    const message = input.value.trim();
+
+    if (message === '') return;
+
+    const msgBox = document.getElementById('chat-messages');
+
+    const newMsg = document.createElement('div');
+    newMsg.className = 'chat-msg';
+
+    const sender = document.createElement('span');
+    sender.textContent = 'أنت:';
+
+    const content = document.createTextNode(' ' + message);
+
+    newMsg.appendChild(sender);
+    newMsg.appendChild(content);
+
+    msgBox.appendChild(newMsg);
+
+    msgBox.scrollTop = msgBox.scrollHeight;
+
+    input.value = '';
+}
+
+// --- SHARE ROOM LINK ---
+
+async function shareRoom() {
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(window.location.href);
+        } else {
+            const temp = document.createElement('textarea');
+
+            temp.value = window.location.href;
+            temp.style.position = 'fixed';
+            temp.style.opacity = '0';
+
+            document.body.appendChild(temp);
+
+            temp.select();
+
+            const copied = document.execCommand('copy');
+
+            temp.remove();
+
+            if (!copied) {
+                throw new Error('Clipboard unavailable');
+            }
+        }
+
+        alert('تم نسخ رابط اللعبة بنجاح! ارسله لأصحابك.');
+    } catch (error) {
+        alert('تعذر نسخ الرابط. انسخه من شريط العنوان.');
+    }
+}
+
+// --- WINDOW RESIZE ---
+
+function onWindowResize() {
+    if (!camera || !renderer) return;
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+}
+
+// --- GAME LOOP ---
+
+function animate(time = 0) {
+    requestAnimationFrame(animate);
+
+    const delta = lastFrameTime
+        ? Math.min((time - lastFrameTime) / 16.667, 2)
+        : 1;
+
+    lastFrameTime = time;
+
+    updatePlayer(delta);
+
+    renderer.render(scene, camera);
+}
+
+// --- START GAME ---
+
+window.onload = init;
+
+</script>
+</body>
+</html>
